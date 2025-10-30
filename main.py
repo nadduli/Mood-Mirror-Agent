@@ -1,14 +1,11 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-import os
 import uuid
 
 from models.a2a_models import A2ARequest, A2AResponse
 from agents.mood_mirror import MoodMirrorAgent
 
-load_dotenv()
 
 mood_agent = MoodMirrorAgent()
 
@@ -125,12 +122,4 @@ async def agent_info():
 
 if __name__ == "__main__":
     import uvicorn
-    
-    port = int(os.getenv("PORT", 8000))
-    host = os.getenv("HOST", "0.0.0.0")
-    
-    print(f"🚀 Starting Mood Mirror A2A Agent on {host}:{port}")
-    print(f"📚 API Documentation: http://{host}:{port}/docs")
-    print(f"❤️  A2A Endpoint: http://{host}:{port}/a2a/moodmirror")
-    
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
