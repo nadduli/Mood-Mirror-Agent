@@ -134,7 +134,7 @@ class MoodMirrorAgent:
         
         return random.choice(responses.get(mood, responses["neutral"]))
     
-    async def process_message(self, request_data: dict) -> dict:
+async def process_message(self, request_data: dict) -> dict:
     """
     Process incoming A2A message and return a TaskResult compliant with Telex validation.
     Fixes data list → dict issue and ensures history & artifacts are valid.
