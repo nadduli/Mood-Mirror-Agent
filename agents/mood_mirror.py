@@ -135,69 +135,79 @@ class MoodMirrorAgent:
         return random.choice(responses.get(mood, responses["neutral"]))
     
     async def process_message(self, request_data: dict) -> dict:
-        """Process incoming A2A message and return response"""
-        
-        # Extract user message
-        user_message = request_data.get("message", {})
-        message_parts = user_message.get("parts", [])
-        
-        user_text = ""
-        for part in message_parts:
-            if part.get("kind") == "text" and part.get("text"):
-                user_text = part["text"]
-                break
-        
-        if not user_text:
-            user_text = "Hello!"
-        
-        mood_analysis = self.analyze_mood(user_text)
-        mood_response = self.generate_response(
-            mood_analysis["mood"], 
-            mood_analysis["score"], 
-            user_text
-        )
-        
-        response_message = A2AMessage(
-            role="agent",
-            parts=[
-                Message(kind="text", text=mood_response),
-                Message(
-                    kind="data", 
-                    data={
-                        "mood_analysis": mood_analysis,
-                        "message_metrics": {
-                            "length": len(user_text),
-                            "word_count": len(user_text.split()),
-                            "processed_at": datetime.utcnow().isoformat()
-                        }
+    """
+    Process incoming A2A message and return a TaskResult compliant with Telex validation.
+    Fixes data list → dict issue and ensures history & artifacts are valid.
+    """
+    # Extract user message
+    user_message = request_data.get("message", {})
+    message_parts = user_message.get("parts", [])
+
+    user_text = ""
+    for part in message_parts:
+        if part.get("kind") == "text" and part.get("text"):
+            user_text = part["text"]
+            break
+
+    if not user_text:
+        user_text = "Hello!"
+
+    mood_analysis = self.analyze_mood(user_text)
+
+    mood_response = self.generate_response(
+        mood_analysis["mood"], 
+        mood_analysis["score"], 
+        user_text
+    )
+
+    response_message = A2AMessage(
+        role="agent",
+        parts=[
+            Message(kind="text", text=mood_response),
+            Message(
+                kind="data",
+                data={
+                    "mood_analysis": mood_analysis,
+                    "message_metrics": {
+                        "length": len(user_text),
+                        "word_count": len(user_text.split()),
+                        "processed_at": datetime.utcnow().isoformat()
                     }
-                )
-            ],
-            messageId=str(uuid.uuid4())
-        )
-        
-        mood_artifact = Artifact(
-            artifactId=str(uuid.uuid4()),
-            name="mood_analysis",
-            parts=[
-                Message(
-                    kind="data",
-                    data=mood_analysis
-                )
-            ]
-        )
-        
-        # Build task result
-        task_result = TaskResult(
-            id=request_data.get("id", str(uuid.uuid4())),
-            contextId=f"mood-{str(uuid.uuid4())[:8]}",
-            status=TaskStatus(
-                state="completed",
-                timestamp=datetime.utcnow().isoformat(),
-                message=response_message
-            ),
-            artifacts=[mood_artifact],
-            history=[user_message, response_message]
-        )
-        
-        return task_result
+                }
+            )
+        ],
+        messageId=str(uuid.uuid4())
+    )
+
+    mood_artifact = Artifact(
+        artifactId=str(uuid.uuid4()),
+        name="mood_analysis",
+        parts=[
+            Message(
+                kind="data",
+                data=mood_analysis
+            )
+        ]
+    )
+
+    for part in user_message.get("parts", []):
+        if isinstance(part.get("data"), list):
+            merged_data = {}
+            for item in part["data"]:
+                if isinstance(item, dict):
+                    merged_data.update(item)
+            part["data"] = merged_data
+
+    task_result = TaskResult(
+        id=request_data.get("id", str(uuid.uuid4())),
+        contextId=f"mood-{str(uuid.uuid4())[:8]}",
+        status=TaskStatus(
+            state="completed",
+            timestamp=datetime.utcnow().isoformat(),
+            message=response_message
+        ),
+        artifacts=[mood_artifact],
+        history=[user_message, response_message]
+    )
+
+    return task_result
